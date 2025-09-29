@@ -2,14 +2,16 @@
 
 namespace RyanChandler\FilamentUserResource;
 
-use Filament\PluginServiceProvider;
-use RyanChandler\FilamentUserResource\Resources\UserResource;
+use Spatie\LaravelPackageTools\Package;
+use Spatie\LaravelPackageTools\PackageServiceProvider;
 
-class FilamentUserResourceServiceProvider extends PluginServiceProvider
+class FilamentUserResourceServiceProvider extends PackageServiceProvider
 {
     public static string $name = 'filament-user-resource';
 
-    protected array $resources = [
-        UserResource::class,
-    ];
+    public function configurePackage(Package $package): void
+    {
+        $package->name(static::$name)
+            ->hasConfigFile();
+    }
 }

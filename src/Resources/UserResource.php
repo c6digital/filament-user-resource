@@ -2,24 +2,23 @@
 
 namespace RyanChandler\FilamentUserResource\Resources;
 
+use RyanChandler\FilamentUserResource\FilamentUserResourcePlugin;
 use RyanChandler\FilamentUserResource\Resources\UserResource\Pages;
-use RyanChandler\FilamentUserResource\Resources\UserResource\RelationManagers;
-use App\Models\User;
 use Closure;
-use Filament\Forms;
-use Filament\Forms\Components\Card;
+use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\BulkActionGroup;
+use Filament\Tables\Actions\DeleteBulkAction;
 use Filament\Forms\Components\Group;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
-use Filament\Resources\Form;
+use Filament\Forms\Form;
 use Filament\Resources\Resource;
-use Filament\Resources\Table;
-use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\HtmlString;
 use Illuminate\Validation\Rules\Password;
-use RyanChandler\FilamentUserResource\Resources\UserResource\Pages\CreateUser;
 
 class UserResource extends Resource
 {
@@ -27,19 +26,12 @@ class UserResource extends Resource
 
     protected static bool | Closure $enablePasswordUpdates = false;
 
-    protected static Closure | null $extendFormCallback = null;
-
-    public static function extendForm(Closure $callback): void
-    {
-        static::$extendFormCallback = $callback;
-    }
-
     public static function form(Form $form): Form
     {
         return $form
             ->schema(function () {
                 $schema = [
-                    'left' => Card::make([
+                    'left' => Section::make([
                         'name' => TextInput::make('name')
                             ->required(),
                         'email' => TextInput::make('email')
@@ -49,7 +41,7 @@ class UserResource extends Resource
                             ->required()
                             ->password()
                             ->dehydrateStateUsing(fn ($state) => Hash::make($state))
-                            ->visible(fn ($livewire) => $livewire instanceof CreateUser)
+                            ->visible(fn ($livewire) => $livewire instanceof Pages\CreateUser)
                             ->rule(Password::default()),
                         'new_password_group' => Group::make([
                             'new_password' => TextInput::make('new_password')
@@ -66,14 +58,16 @@ class UserResource extends Resource
                                 ->dehydrated(false),
                         ])->visible(static::$enablePasswordUpdates)
                     ])->columnSpan(8),
-                    'right' => Card::make([
+                    'right' => Section::make([
                         'created_at' => Placeholder::make('created_at')
                             ->content(fn ($record) => $record?->created_at?->diffForHumans() ?? new HtmlString('&mdash;'))
                     ])->columnSpan(4),
                 ];
 
-                if (static::$extendFormCallback !== null) {
-                    $schema = value(static::$extendFormCallback, $schema);
+                $extendFormCallback = FilamentUserResourcePlugin::get()->extendFormCallback;
+
+                if ($extendFormCallback !== null) {
+                    $schema = value($extendFormCallback, $schema);
                 }
 
                 return $schema;
@@ -93,6 +87,16 @@ class UserResource extends Resource
                     ->dateTime()
                     ->sortable(),
             ])
+            ->actions([
+                Action::make('edit')
+                    ->url(fn ($record): string => route('filament.admin.resources.users.edit', $record))
+                    ->icon('heroicon-m-pencil-square')
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                ])
+            ])
             ->defaultSort('created_at', 'desc');
     }
 
@@ -104,6 +108,11 @@ class UserResource extends Resource
     public static function getModel(): string
     {
         return config('filament-user-resource.model');
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return FilamentUserResourcePlugin::get()->navigationGroup;
     }
 
     public static function getRelations(): array
